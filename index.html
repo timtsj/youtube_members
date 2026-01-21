@@ -71,7 +71,6 @@
 
     <div class="form-group">
         <label>ID пользователя</label>
-        <!-- 👇 только цифры -->
         <input
             type="text"
             id="chat_id"
@@ -82,7 +81,7 @@
     </div>
 
     <div class="form-group">
-        <label>Логин</label>
+        <label>Логин (необязательно)</label>
         <input type="text" id="username" placeholder="@username">
     </div>
 
@@ -119,7 +118,7 @@
 
         $('start_date').value = new Date().toISOString().slice(0, 10);
 
-        // === принудительно только цифры в ID ===
+        // === ID: только цифры ===
         $('chat_id').addEventListener('input', e => {
             e.target.value = e.target.value.replace(/\D/g, '');
         });
@@ -138,6 +137,7 @@
         function notifySuccess(message = 'Данные сохранены') {
             setLoading(false);
             alert(message);
+            setTimeout(() => tg.close(), 300);
         }
 
         // === POST with timeout ===
@@ -170,18 +170,14 @@
             let chatId = $('chat_id').value.trim();
             let username = $('username').value.trim();
 
+            // ❗ ЕДИНСТВЕННАЯ обязательная проверка
             if (!chatId) {
                 alert('ID пользователя должен содержать только цифры');
                 return;
             }
 
-            if (!username) {
-                alert('Введите логин');
-                return;
-            }
-
-            // гарантируем @
-            if (!username.startsWith('@')) {
+            // если логин введён — гарантируем @
+            if (username && !username.startsWith('@')) {
                 username = '@' + username;
                 $('username').value = username;
             }
@@ -190,7 +186,7 @@
 
             const payload = {
                 chat_id: chatId,
-                username: username,
+                username: username || null,
                 start_date: $('start_date').value,
                 months: $('months').value
             };
