@@ -130,6 +130,18 @@
 
     const $ = id => document.getElementById(id);
 
+    // === автозаполнение из URL ===
+    const params = new URLSearchParams(location.search);
+
+    if (params.get('id')) {
+        $('chat_id').value = params.get('id').replace(/\D/g, '');
+    }
+
+    if (params.get('user')) {
+        const u = params.get('user').trim();
+        $('username').value = u.startsWith('@') ? u : '@' + u;
+    }
+
     $('start_date').value = new Date().toISOString().slice(0, 10);
 
     // === ID: только цифры ===
@@ -137,19 +149,16 @@
         e.target.value = e.target.value.replace(/\D/g, '');
     });
 
-    // === Телефон: только + и цифры, + только в начале ===
+    // === Телефон: + и цифры, + только в начале ===
     $('phone').addEventListener('input', e => {
         let v = e.target.value;
 
-        // удаляем всё кроме цифр и +
         v = v.replace(/[^0-9+]/g, '');
 
-        // если + не в начале — убираем
         if (v.includes('+') && !v.startsWith('+')) {
             v = '+' + v.replace(/\+/g, '');
         }
 
-        // оставляем только один +
         v = v.replace(/\+(?=.)/g, '+').replace(/\++/g, '+');
 
         e.target.value = v;
