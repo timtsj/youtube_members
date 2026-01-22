@@ -67,143 +67,176 @@
 </head>
 
 <body>
-    <h3>Регистрация участника</h3>
+<h3>Регистрация участника</h3>
 
-    <div class="form-group">
-        <label>ID пользователя</label>
-        <input
-            type="text"
-            id="chat_id"
-            placeholder="Только цифры"
-            inputmode="numeric"
-            pattern="[0-9]*"
-        >
-    </div>
+<div class="form-group">
+    <label>ID пользователя</label>
+    <input
+        type="text"
+        id="chat_id"
+        placeholder="Только цифры"
+        inputmode="numeric"
+    >
+</div>
 
-    <div class="form-group">
-        <label>Логин (необязательно)</label>
-        <input type="text" id="username" placeholder="@username">
-    </div>
+<div class="form-group">
+    <label>Логин (необязательно)</label>
+    <input type="text" id="username" placeholder="@username">
+</div>
 
-    <div class="form-group">
-        <label>Дата вступления</label>
-        <input type="date" id="start_date">
-    </div>
+<div class="form-group">
+    <label>Номер телефона</label>
+    <input
+        type="tel"
+        id="phone"
+        placeholder="+77001234567"
+        inputmode="tel"
+    >
+</div>
 
-    <div class="form-group">
-        <label>Срок доступа (мес.)</label>
-        <select id="months">
-            <option value="1">1 месяц</option>
-            <option value="3">3 месяца</option>
-            <option value="6">6 месяцев</option>
-            <option value="12">12 месяцев</option>
-        </select>
-    </div>
+<div class="form-group">
+    <label>Сумма (общее)</label>
+    <input
+        type="text"
+        id="amount"
+        placeholder="Только цифры"
+        inputmode="numeric"
+    >
+</div>
 
-    <button id="submitBtn" onclick="sendData()">
-        <span class="btn-text">Добавить в группу</span>
-        <span class="loader" hidden></span>
-    </button>
+<div class="form-group">
+    <label>Дата вступления</label>
+    <input type="date" id="start_date">
+</div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+<div class="form-group">
+    <label>Срок доступа (мес.)</label>
+    <select id="months">
+        <option value="1">1 месяц</option>
+        <option value="3">3 месяца</option>
+        <option value="6">6 месяцев</option>
+        <option value="12">12 месяцев</option>
+    </select>
+</div>
 
-        const $ = id => document.getElementById(id);
+<button id="submitBtn" onclick="sendData()">
+    <span class="btn-text">Добавить в группу</span>
+    <span class="loader" hidden></span>
+</button>
 
-        // === автозаполнение из URL ===
-        const params = new URLSearchParams(location.search);
-        if (params.get('id')) $('chat_id').value = params.get('id').replace(/\D/g, '');
-        if (params.get('user')) $('username').value = '@' + params.get('user');
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
 
-        $('start_date').value = new Date().toISOString().slice(0, 10);
+    const $ = id => document.getElementById(id);
 
-        // === ID: только цифры ===
-        $('chat_id').addEventListener('input', e => {
-            e.target.value = e.target.value.replace(/\D/g, '');
-        });
+    $('start_date').value = new Date().toISOString().slice(0, 10);
 
-        // === UI helpers ===
-        const btn = $('submitBtn');
-        const btnText = btn.querySelector('.btn-text');
-        const loader = btn.querySelector('.loader');
+    // === ID: только цифры ===
+    $('chat_id').addEventListener('input', e => {
+        e.target.value = e.target.value.replace(/\D/g, '');
+    });
 
-        function setLoading(state) {
-            btn.disabled = state;
-            btnText.hidden = state;
-            loader.hidden = !state;
+    // === Телефон: только + и цифры, + только в начале ===
+    $('phone').addEventListener('input', e => {
+        let v = e.target.value;
+
+        // удаляем всё кроме цифр и +
+        v = v.replace(/[^0-9+]/g, '');
+
+        // если + не в начале — убираем
+        if (v.includes('+') && !v.startsWith('+')) {
+            v = '+' + v.replace(/\+/g, '');
         }
 
-        function notifySuccess(message = 'Данные сохранены') {
+        // оставляем только один +
+        v = v.replace(/\+(?=.)/g, '+').replace(/\++/g, '+');
+
+        e.target.value = v;
+    });
+
+    // === Сумма: только цифры ===
+    $('amount').addEventListener('input', e => {
+        e.target.value = e.target.value.replace(/\D/g, '');
+    });
+
+    const btn = $('submitBtn');
+    const btnText = btn.querySelector('.btn-text');
+    const loader = btn.querySelector('.loader');
+
+    function setLoading(state) {
+        btn.disabled = state;
+        btnText.hidden = state;
+        loader.hidden = !state;
+    }
+
+    function notifySuccess(message = 'Данные сохранены') {
+        setLoading(false);
+        alert(message);
+        setTimeout(() => tg.close(), 300);
+    }
+
+    async function post(url, payload, timeout = 6000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+
+            clearTimeout(timer);
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function sendData() {
+        if (btn.disabled) return;
+
+        let chatId = $('chat_id').value.trim();
+        let username = $('username').value.trim();
+        let phone = $('phone').value.trim();
+        let amount = $('amount').value.trim();
+
+        if (!chatId) {
+            alert('ID пользователя обязателен');
+            return;
+        }
+
+        if (username && !username.startsWith('@')) {
+            username = '@' + username;
+            $('username').value = username;
+        }
+
+        setLoading(true);
+
+        const payload = {
+            chat_id: chatId,
+            username: username || null,
+            phone: phone || null,
+            amount: amount ? Number(amount) : null,
+            start_date: $('start_date').value,
+            months: $('months').value
+        };
+
+        try {
+            await post(
+                'https://n8nprivate.duckdns.org/webhook/registration',
+                payload
+            );
+            notifySuccess();
+        } catch (e) {
             setLoading(false);
-            alert(message);
-            setTimeout(() => tg.close(), 300);
+            alert('Ошибка связи с n8n');
+            console.error(e);
         }
-
-        // === POST with timeout ===
-        async function post(url, payload, timeout = 6000) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeout);
-
-            try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    signal: controller.signal
-                });
-
-                clearTimeout(timer);
-
-                if (res.ok) return;
-                throw new Error(`HTTP ${res.status}`);
-            } catch (e) {
-                clearTimeout(timer);
-                throw e;
-            }
-        }
-
-        // === MAIN ===
-        async function sendData() {
-            if (btn.disabled) return;
-
-            let chatId = $('chat_id').value.trim();
-            let username = $('username').value.trim();
-
-            // ❗ ЕДИНСТВЕННАЯ обязательная проверка
-            if (!chatId) {
-                alert('ID пользователя должен содержать только цифры');
-                return;
-            }
-
-            // если логин введён — гарантируем @
-            if (username && !username.startsWith('@')) {
-                username = '@' + username;
-                $('username').value = username;
-            }
-
-            setLoading(true);
-
-            const payload = {
-                chat_id: chatId,
-                username: username || null,
-                start_date: $('start_date').value,
-                months: $('months').value
-            };
-
-            try {
-                await post(
-                    'https://n8nprivate.duckdns.org/webhook/registration',
-                    payload
-                );
-
-                notifySuccess();
-            } catch (e) {
-                setLoading(false);
-                alert('Ошибка связи с n8n');
-                console.error(e);
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
